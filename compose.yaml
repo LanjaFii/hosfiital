@@ -1,0 +1,26 @@
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: hosfiital-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hosfiital
+      POSTGRES_USER: hosfiital
+      POSTGRES_PASSWORD: hosfiital_dev_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: hosfiital-metabase
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
