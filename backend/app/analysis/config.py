@@ -1,5 +1,6 @@
 import os
 import json
+import copy
 from typing import Dict, Any
 
 
@@ -52,7 +53,8 @@ def load_thresholds(defaults: Dict[str, Any]) -> Dict[str, Any]:
                 cfg = None
 
     if cfg:
-        merged = deep_update(defaults.copy(), cfg)
+        # Use a deep copy of defaults to avoid mutating caller's nested structures
+        merged = deep_update(copy.deepcopy(defaults), cfg)
         return merged
     return defaults
 

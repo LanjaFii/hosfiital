@@ -35,6 +35,21 @@ def test_env_override_changes_thresholds(tmp_path, monkeypatch):
     assert rules.CONFIG['saturation']['global']['critical'] == rules.DEFAULT_CONFIG['saturation']['global']['critical']
 
 
+def test_defaults_not_mutated_on_override(tmp_path, monkeypatch):
+    # ensure DEFAULT_CONFIG remains unchanged after an override is applied
+    cfg = {'saturation': {'global': {'warning': 0.33, 'alert': 0.44}}}
+    p = tmp_path / 'th2.json'
+    p.write_text(json.dumps(cfg))
+    monkeypatch.setenv('ANALYSIS_THRESHOLDS', str(p))
+    rules = reload_rules_module()
+    # CONFIG should reflect override
+    assert rules.CONFIG['saturation']['global']['warning'] == 0.33
+    assert rules.CONFIG['saturation']['global']['alert'] == 0.44
+    # DEFAULT_CONFIG must remain equal to the historical defaults
+    assert rules.DEFAULT_CONFIG['saturation']['global']['warning'] == 0.90
+    assert rules.DEFAULT_CONFIG['saturation']['global']['alert'] == 0.95
+
+
 def test_env_override_with_json_string(monkeypatch):
     js = json.dumps({'budget': {'warning_pct': 0.4, 'alert_pct': 0.5}})
     monkeypatch.setenv('ANALYSIS_THRESHOLDS', js)
