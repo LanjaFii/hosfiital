@@ -236,6 +236,16 @@ L'architecture générale du système sera organisée comme suit :
 
 ## 7.1 Base de données
 
+---
+
+# Documentation Phase 4
+
+Une documentation détaillée de la Phase 4 (moteur d'analyse décisionnelle,
+règles métier, scénarios et validation) se trouve dans :
+
+- [backend/docs/PHASE4.md](backend/docs/PHASE4.md)
+
+
 **PostgreSQL**
 
 Rôle :
