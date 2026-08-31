@@ -57,19 +57,7 @@ def test_e2e_saturation():
     # expect at least one triggered anomaly related to saturation
     anomalies = data.get('anomalies') or []
     sat = [a for a in anomalies if a.get('rule_id') == 'saturation_v1']
-    # if generator didn't reach warning threshold, skip the strict assertion
-    # compute actual occupancy rate for the day
-    session = SessionLocal()
-    day = datetime.utcnow().date() + timedelta(days=9)
-    cap = kpis_module.capacity_total(as_of=day)
-    occ = kpis_module.occupied_beds_total(start=day, end=day)
-    session.close()
-    occ_rate = (occ / cap) if cap else 0.0
-    warn = rules_module.CONFIG['saturation']['global']['warning']
-    if occ_rate < warn:
-        import pytest
-
-        pytest.skip(f"Generator did not reach saturation warning threshold (rate={occ_rate:.2f} < {warn})")
+    # expect at least one triggered anomaly related to saturation
     assert len(sat) >= 1
     # check recommendations include service_id or anomalies indicate service
     recs = data.get('recommendations') or []
@@ -85,22 +73,7 @@ def test_e2e_budget_overrun():
     data = fetch_analysis(aid)
     anomalies = data.get('anomalies') or []
     bud = [a for a in anomalies if a.get('rule_id') == 'budget_overrun_v1']
-    # check if generator produced budget overruns above warning threshold
-    session = SessionLocal()
-    b = kpis_module.budget_by_service()
-    e = kpis_module.expenses_by_service(start=(datetime.utcnow().date() + timedelta(days=9)), end=(datetime.utcnow().date() + timedelta(days=9)))
-    session.close()
-    warn_pct = rules_module.CONFIG['budget']['warning_pct']
-    triggered = False
-    for sid, bud_amount in b.items():
-        exp = e.get(sid, 0.0)
-        if bud_amount and (exp / bud_amount) >= warn_pct:
-            triggered = True
-            break
-    if not triggered:
-        import pytest
-
-        pytest.skip("Generator did not produce budget overrun above warning threshold")
+    # expect at least one triggered anomaly related to budget overrun
     assert len(bud) >= 1
     recs = data.get('recommendations') or []
     assert len(recs) >= 1

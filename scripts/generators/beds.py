@@ -1,11 +1,15 @@
 from datetime import datetime
-from backend.app.models.models import Bed, ServiceCapacity
+from backend.app.models.models import Bed, ServiceCapacity, Service
 
 
 def generate_beds_and_capacity(session, services, rnd):
     """Create beds and initial service_capacity for each service."""
     capacities = {}
-    for s in services:
+    # reload service rows from DB to ensure stable PKs in this session
+    codes = [s.code for s in services]
+    db_services = {s.code: s for s in session.query(Service).filter(Service.code.in_(codes)).all()}
+    for code in codes:
+        s = db_services.get(code)
         # base beds by service code heuristic
         base = {
             'URG': 30,

@@ -103,7 +103,10 @@ def rule_saturation(context: Dict[str, Any], cfg: Dict = CONFIG) -> Dict:
             elif s_rate >= scfg['warning']:
                 svc_msgs.append((sid, 'warning', s_rate))
 
-        if svc_msgs and (status == 'ok' or sev in (None, 'warning')):
+        # If any service-level messages exist, record the worst one so recommendations
+        # can reference a specific service. Do this even if global severity is already
+        # triggered so callers can point to a service for mitigation.
+        if svc_msgs:
             # escalate severity to highest service severity if needed
             levels = {'warning': 1, 'alert': 2, 'critical': 3}
             max_level = 0

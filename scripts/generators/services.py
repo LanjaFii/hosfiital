@@ -13,9 +13,15 @@ SERVICES_TEMPLATE = [
 
 def generate_services(session):
     services = []
+    codes = [c for c, _ in SERVICES_TEMPLATE]
+    # fetch existing services to be idempotent
+    existing = {s.code: s for s in session.query(Service).filter(Service.code.in_(codes)).all()}
     for code, name in SERVICES_TEMPLATE:
-        s = Service(code=code, name=name, description=f"Service {name}")
-        session.add(s)
-        services.append(s)
+        if code in existing:
+            services.append(existing[code])
+        else:
+            s = Service(code=code, name=name, description=f"Service {name}")
+            session.add(s)
+            services.append(s)
     session.flush()
     return services

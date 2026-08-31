@@ -148,6 +148,11 @@ def run_analysis(start: Optional[date] = None, end: Optional[date] = None, servi
             db_session.flush()
             for rec in recommendations:
                 svc_id = rec.get('service_id')
+                # verify service exists in DB before assigning FK; if not, drop the link
+                if svc_id is not None:
+                    from backend.app.models.models import Service
+                    if db_session.query(Service).get(svc_id) is None:
+                        svc_id = None
                 r = Recommendation(analysis_id=a.id, service_id=svc_id, text=rec['text'], type=rec['rule_id'], status='open')
                 db_session.add(r)
         report['analysis_id'] = a.id
