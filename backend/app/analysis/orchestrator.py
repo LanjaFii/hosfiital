@@ -36,7 +36,22 @@ def _make_recommendations(rule_results: List[Dict[str, Any]]) -> List[Dict[str, 
         if r['status'] != 'triggered':
             continue
         text = f"Rule {r['rule_id']} triggered (severity={r['severity']}): {r['explanation']}"
-        recs.append({'rule_id': r['rule_id'], 'severity': r['severity'], 'text': text})
+        # try to extract a service_id if available in rule values
+        svc = None
+        vals = r.get('values') or {}
+        # common patterns
+        if 'service_issue' in vals and isinstance(vals['service_issue'], dict):
+            svc = vals['service_issue'].get('service_id')
+        # budget rule: details -> find triggered service
+        if svc is None and 'details' in vals and isinstance(vals['details'], dict):
+            for sid, info in vals['details'].items():
+                if info.get('status') == 'triggered':
+                    try:
+                        svc = int(sid)
+                        break
+                    except Exception:
+                        svc = sid
+        recs.append({'rule_id': r['rule_id'], 'severity': r['severity'], 'text': text, 'service_id': svc})
     return recs
 
 
@@ -132,7 +147,8 @@ def run_analysis(start: Optional[date] = None, end: Optional[date] = None, servi
             db_session.add(a)
             db_session.flush()
             for rec in recommendations:
-                r = Recommendation(analysis_id=a.id, service_id=None, text=rec['text'], type=rec['rule_id'], status='open')
+                svc_id = rec.get('service_id')
+                r = Recommendation(analysis_id=a.id, service_id=svc_id, text=rec['text'], type=rec['rule_id'], status='open')
                 db_session.add(r)
         report['analysis_id'] = a.id
 
