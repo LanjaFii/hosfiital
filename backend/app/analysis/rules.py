@@ -14,8 +14,10 @@ Les seuils V1 sont définis dans CONFIG et peuvent être externalisés plus tard
 """
 from typing import Dict, Any
 
-# Configuration des seuils V1 (peuvent être externalisés plus tard)
-CONFIG = {
+from backend.app.analysis.config import load_thresholds
+
+# Default configuration des seuils V1 (valeurs historiques conservées)
+DEFAULT_CONFIG = {
     'saturation': {
         'global': {'warning': 0.90, 'alert': 0.95, 'critical': 0.98},
         'service': {'warning': 0.95, 'alert': 0.98, 'critical': 1.00},
@@ -38,6 +40,9 @@ CONFIG = {
         'default': {'warning': 4.0, 'alert': 6.0, 'critical': 8.0},
     }
 }
+
+# Load overrides from configuration (env var or config file). Defaults preserved when no overrides provided.
+CONFIG = load_thresholds(DEFAULT_CONFIG)
 
 
 def _make_result(rule_id: str, status: str, severity: Any, explanation: str, values: Dict[str, Any]):
