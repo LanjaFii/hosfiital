@@ -4,23 +4,6 @@ from .kpis import calculate_daily_kpis
 from sqlalchemy import text
 
 
-def _ensure_kpi_table():
-    create_sql = '''
-    create table if not exists kpi_daily (
-      day date primary key,
-      admissions_total integer,
-      discharges_total integer,
-      occupied_beds_total integer,
-      capacity_total integer,
-      occupancy_rate numeric,
-      expenses_total numeric,
-      energy_total numeric
-    )
-    '''
-    with engine.connect() as conn:
-        conn.execute(text(create_sql))
-
-
 def persist_kpis(kpis):
     insert_sql = '''
     insert into kpi_daily (day, admissions_total, discharges_total, occupied_beds_total, capacity_total, occupancy_rate, expenses_total, energy_total)
