@@ -4,6 +4,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    Date,
     DateTime,
     Boolean,
     ForeignKey,
@@ -152,7 +153,7 @@ class EnergyConsumption(Base):
 class KpiDaily(Base):
     __tablename__ = "kpi_daily"
 
-    day = Column(DateTime, primary_key=True)
+    day = Column(Date, primary_key=True)
     admissions_total = Column(Integer)
     discharges_total = Column(Integer)
     occupied_beds_total = Column(Integer)
