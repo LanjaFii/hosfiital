@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, List
 from datetime import date, datetime
 
 from backend.app.analysis import rules
-from backend.app import etl as kpis_module
+from backend.app.etl import kpis as kpis_module
 
 
 SEVERITY_ORDER = {'critical': 3, 'alert': 2, 'warning': 1, None: 0}
