@@ -34,24 +34,10 @@ def persist_kpis(kpis):
       expenses_total = excluded.expenses_total,
       energy_total = excluded.energy_total
     '''
-    # create table and insert using the same connection
-    create_sql = '''
-    create table if not exists kpi_daily (
-      day date primary key,
-      admissions_total integer,
-      discharges_total integer,
-      occupied_beds_total integer,
-      capacity_total integer,
-      occupancy_rate numeric,
-      expenses_total numeric,
-      energy_total numeric
-    )
-    '''
     from sqlalchemy import text as _text
     with engine.begin() as conn:
-      conn.execute(_text(create_sql))
-      for k in kpis:
-        conn.execute(_text(insert_sql), {
+        for k in kpis:
+            conn.execute(_text(insert_sql), {
                 'day': k['date'],
                 'admissions_total': k['admissions_total'],
                 'discharges_total': k['discharges_total'],

@@ -149,6 +149,19 @@ class EnergyConsumption(Base):
     metadata_json = Column(JSONB)
 
 
+class KpiDaily(Base):
+    __tablename__ = "kpi_daily"
+
+    day = Column(DateTime, primary_key=True)
+    admissions_total = Column(Integer)
+    discharges_total = Column(Integer)
+    occupied_beds_total = Column(Integer)
+    capacity_total = Column(Integer)
+    occupancy_rate = Column(Numeric)
+    expenses_total = Column(Numeric)
+    energy_total = Column(Numeric)
+
+
 class Analysis(Base):
     __tablename__ = "analyses"
 
