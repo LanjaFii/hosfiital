@@ -9,3 +9,5 @@ instance/
 venv/
 dist/
 build/
+# temporary backend backups
+backend/tmp_*.csv
