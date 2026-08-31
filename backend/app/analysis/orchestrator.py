@@ -126,13 +126,14 @@ def run_analysis(start: Optional[date] = None, end: Optional[date] = None, servi
             raise RuntimeError('db_session required when persist=True')
         # lazy import to avoid circular deps at module import time
         from backend.app.models.models import Analysis, Recommendation
-        a = Analysis(triggered_by=triggered_by, triggered_at=datetime.utcnow(), kpi_snapshot=report['kpi_snapshot'], anomalies=[r for r in results if r['status'] == 'triggered'], risk_level=overall_risk)
-        db_session.add(a)
-        db_session.flush()
-        for rec in recommendations:
-            r = Recommendation(analysis_id=a.id, service_id=None, text=rec['text'], type=rec['rule_id'], status='open')
-            db_session.add(r)
-        db_session.commit()
+        # Use an explicit transaction scope so failure rolls back everything
+        with db_session.begin():
+            a = Analysis(triggered_by=triggered_by, triggered_at=datetime.utcnow(), kpi_snapshot=report['kpi_snapshot'], anomalies=[r for r in results if r['status'] == 'triggered'], risk_level=overall_risk)
+            db_session.add(a)
+            db_session.flush()
+            for rec in recommendations:
+                r = Recommendation(analysis_id=a.id, service_id=None, text=rec['text'], type=rec['rule_id'], status='open')
+                db_session.add(r)
         report['analysis_id'] = a.id
 
     return report
