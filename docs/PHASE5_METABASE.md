@@ -148,3 +148,21 @@ Security & production notes
 - Prefer dedicated metabase DB and user with limited privileges.
 
 End of document.
+
+Imported Dashboard
+------------------
+During setup we created and imported the Dashboard "A - Vue générale de l'hôpital" directly into Metabase metadata. Details:
+
+- Metabase `database_id`: 2 (hosfiital datasource)
+- Dashboard id: 2
+- Cards created (IDs):
+  - 40: Admissions - série temporelle
+  - 41: Sorties - série temporelle
+  - 42: Occupation vs Capacité - série temporelle
+  - 43: Dépenses et consommation énergétique
+  - 44: Résumé par service (dernier jour)
+  - 45: Aperçu des risques / recommandations
+
+These cards are native SQL questions that query the `vw_*` views. They were validated by executing the same SQL directly against the `hosfiital` DB (results ok — may be zeros depending on seeded data).
+
+To remove the dashboard from Metabase, delete the `report_dashboard` row with id=2 in the metabase metadata DB or use the Metabase UI to delete it. Do not remove application data.
