@@ -1,0 +1,55 @@
+{
+  "exported_at": "2026-09-01T00:00:00Z",
+  "version": "1.0",
+  "metabase_version": "latest",
+  "database_id": 2,
+  "dashboard": {
+    "name": "C - Capacité & Occupation",
+    "description": "Capacité par service, lits occupés, taux d'occupation, et séries temporelles détaillées.",
+    "cards": [
+      {
+        "name": "Tendance - Capacité totale",
+        "type": "native",
+        "query": "SELECT day, capacity_total FROM vw_kpi_daily ORDER BY day;",
+        "display": "line"
+      },
+      {
+        "name": "Tendance - Taux d'occupation (global)",
+        "type": "native",
+        "query": "SELECT day, occupancy_rate FROM vw_kpi_daily ORDER BY day;",
+        "display": "line"
+      },
+      {
+        "name": "Occupation horaire par service (dernier 7 jours)",
+        "type": "native",
+        "query": "SELECT date, hour, service_name, occupied_beds, beds_total, occupancy_rate FROM vw_occupancy_timeseries WHERE date >= (current_date - INTERVAL '7 days') ORDER BY date, hour;",
+        "display": "heatmap",
+        "notes": "Utiliser heatmap ou barres empilées selon préférence UI"
+      },
+      {
+        "name": "Capacité par service (dernier jour)",
+        "type": "native",
+        "query": "SELECT service_name, beds_total, occupied_beds, occupancy_rate FROM vw_service_summary WHERE date = (SELECT MAX(day) FROM vw_kpi_daily) ORDER BY occupancy_rate DESC;",
+        "display": "table"
+      },
+      {
+        "name": "Services avec taux d'occupation élevé",
+        "type": "native",
+        "query": "SELECT service_name, occupancy_rate FROM vw_service_summary WHERE date = (SELECT MAX(day) FROM vw_kpi_daily) AND occupancy_rate IS NOT NULL ORDER BY occupancy_rate DESC LIMIT 10;",
+        "display": "bar"
+      }
+    ],
+    "layout": "auto",
+    "filters": [
+      {
+        "field": "date",
+        "type": "date_range",
+        "applies_to": [
+          "Tendance - Capacité totale",
+          "Tendance - Taux d'occupation (global)",
+          "Occupation horaire par service (dernier 7 jours)"
+        ]
+      }
+    ]
+  }
+}

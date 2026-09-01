@@ -166,3 +166,17 @@ During setup we created and imported the Dashboard "A - Vue générale de l'hôp
 These cards are native SQL questions that query the `vw_*` views. They were validated by executing the same SQL directly against the `hosfiital` DB (results ok — may be zeros depending on seeded data).
 
 To remove the dashboard from Metabase, delete the `report_dashboard` row with id=2 in the metabase metadata DB or use the Metabase UI to delete it. Do not remove application data.
+
+Imported Dashboard C
+--------------------
+Le dashboard "C - Capacité & Occupation" a été importé dans Metabase metadata.
+
+- Dashboard id: 3
+- Cards ids:
+  - 46: Tendance - Capacité totale
+  - 47: Tendance - Taux d'occupation (global)
+  - 48: Occupation horaire par service (dernier 7 jours)
+  - 49: Capacité par service (dernier jour)
+  - 50: Services avec taux d'occupation élevé
+
+Ces cartes utilisent exclusivement les vues `vw_kpi_daily`, `vw_occupancy_timeseries` et `vw_service_summary` et ont été validées en exécutant leurs SQL directement sur la base `hosfiital`.
