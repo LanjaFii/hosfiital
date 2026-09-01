@@ -1,0 +1,63 @@
+{
+  "exported_at": "2026-09-01T00:00:00Z",
+  "version": "1.0",
+  "metabase_version": "latest",
+  "database_id": 2,
+  "dashboard": {
+    "name": "A - Vue générale de l'hôpital",
+    "description": "Vue générale: admissions, sorties, lits, capacité, taux d'occupation, dépenses, énergie, évolution temporelle et aperçu des risques.",
+    "cards": [
+      {
+        "name": "Admissions - série temporelle",
+        "type": "native",
+        "query": "SELECT day, admissions_total FROM vw_kpi_daily ORDER BY day;",
+        "display": "line",
+        "notes": "Filtre période à configurer dans Metabase (Date Range filter sur 'day')."
+      },
+      {
+        "name": "Sorties - série temporelle",
+        "type": "native",
+        "query": "SELECT day, discharges_total FROM vw_kpi_daily ORDER BY day;",
+        "display": "line"
+      },
+      {
+        "name": "Occupation vs Capacité - série temporelle",
+        "type": "native",
+        "query": "SELECT day, occupied_beds_total, capacity_total, occupancy_rate FROM vw_kpi_daily ORDER BY day;",
+        "display": "area"
+      },
+      {
+        "name": "Dépenses et consommation énergétique",
+        "type": "native",
+        "query": "SELECT day, expenses_total, energy_total FROM vw_kpi_daily ORDER BY day;",
+        "display": "line"
+      },
+      {
+        "name": "Résumé par service (dernier jour)",
+        "type": "native",
+        "query": "SELECT date, service_name, admissions, discharges, occupied_beds, beds_total, occupancy_rate, expenses, energy_kwh FROM vw_service_summary WHERE date = (SELECT MAX(day) FROM vw_kpi_daily) ORDER BY service_name;",
+        "display": "table"
+      },
+      {
+        "name": "Aperçu des risques / recommandations",
+        "type": "native",
+        "query": "SELECT service_name, severity, COUNT(*) as cnt FROM vw_recommendations GROUP BY service_name, severity ORDER BY cnt DESC;",
+        "display": "table",
+        "notes": "Si aucune recommandation n'est présente, ce panneau restera vide."
+      }
+    ],
+    "layout": "auto",
+    "filters": [
+      {
+        "field": "day",
+        "type": "date_range",
+        "applies_to": [
+          "Admissions - série temporelle",
+          "Sorties - série temporelle",
+          "Occupation vs Capacité - série temporelle",
+          "Dépenses et consommation énergétique"
+        ]
+      }
+    ]
+  }
+}
