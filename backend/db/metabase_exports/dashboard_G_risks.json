@@ -1,0 +1,48 @@
+{
+  "exported_at": "2026-09-01T00:00:00Z",
+  "version": "1.0",
+  "metabase_version": "latest",
+  "database_id": 2,
+  "dashboard": {
+    "name": "G - Risques & Recommandations",
+    "description": "Alertes, risques détectés et recommandations associées. Utilise vw_recommendations.",
+    "cards": [
+      {
+        "name": "Risques par gravité",
+        "type": "native",
+        "query": "SELECT severity, COUNT(*) AS cnt FROM vw_recommendations GROUP BY severity ORDER BY cnt DESC;",
+        "display": "pie"
+      },
+      {
+        "name": "Recommandations par service",
+        "type": "native",
+        "query": "SELECT service_name, COUNT(*) AS cnt FROM vw_recommendations GROUP BY service_name ORDER BY cnt DESC;",
+        "display": "bar"
+      },
+      {
+        "name": "Détails recommandations (dernier 30 jours)",
+        "type": "native",
+        "query": "SELECT recommendation_id, service_name, rule_id, text, status, created_at, severity, evidence FROM vw_recommendations WHERE created_at >= (current_date - INTERVAL '30 days') ORDER BY created_at DESC;",
+        "display": "table"
+      },
+      {
+        "name": "KPI snapshot sample",
+        "type": "native",
+        "query": "SELECT recommendation_id, (kpi_snapshot::text) AS kpi_snapshot FROM vw_recommendations WHERE kpi_snapshot IS NOT NULL LIMIT 10;",
+        "display": "table",
+        "notes": "kpi_snapshot is JSONB; displayed as text for inspection"
+      }
+    ],
+    "layout": "auto",
+    "filters": [
+      {
+        "field": "created_at",
+        "type": "date_range",
+        "applies_to": [
+          "Détails recommandations (dernier 30 jours)",
+          "KPI snapshot sample"
+        ]
+      }
+    ]
+  }
+}

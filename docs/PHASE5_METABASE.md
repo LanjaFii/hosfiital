@@ -180,3 +180,16 @@ Le dashboard "C - Capacité & Occupation" a été importé dans Metabase metadat
   - 50: Services avec taux d'occupation élevé
 
 Ces cartes utilisent exclusivement les vues `vw_kpi_daily`, `vw_occupancy_timeseries` et `vw_service_summary` et ont été validées en exécutant leurs SQL directement sur la base `hosfiital`.
+
+Imported Dashboard G
+--------------------
+Le dashboard "G - Risques & Recommandations" a été importé dans Metabase metadata.
+
+- Dashboard id: 4
+- Cards ids:
+  - 51: Risques par gravité
+  - 52: Recommandations par service
+  - 53: Détails recommandations (dernier 30 jours)
+  - 54: KPI snapshot sample
+
+Ces cartes exploitent `vw_recommendations` et affichent `severity`, `evidence`, `kpi_snapshot` et le texte des recommandations. Les requêtes ont été testées directement sur la base `hosfiital`.
