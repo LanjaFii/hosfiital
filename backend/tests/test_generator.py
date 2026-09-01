@@ -58,3 +58,17 @@ def test_budget_overrun_trend():
     assert len(data) == days
     # expense should increase overall
     assert data[-1] >= data[0]
+
+
+def test_no_discharges_past_last_day():
+    days = 10
+    seed = 42
+    start = datetime.utcnow().date()
+    run_scenario(name="normal", days=days, seed=seed, start_date=start, reset=True)
+    last_day = start + timedelta(days=days - 1)
+    with SessionLocal() as s:
+        # ensure no admission or discharge beyond last_day
+        res = s.execute(text("SELECT max(admitted_at)::date, max(discharged_at)::date FROM admissions"))
+        max_adm, max_dis = res.first()
+    assert max_adm <= last_day
+    assert max_dis <= last_day
