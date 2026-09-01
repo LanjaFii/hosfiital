@@ -13,6 +13,18 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  metabase_db:
+    image: postgres:17
+    container_name: hosfiital-metabase-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: metabase
+      POSTGRES_USER: metabase
+      POSTGRES_PASSWORD: metabase_pass
+    # do not expose ports for the metadata DB; only Metabase will access it
+    volumes:
+      - metabase_data:/var/lib/postgresql/data
+
   metabase:
     image: metabase/metabase:latest
     container_name: hosfiital-metabase
@@ -21,6 +33,15 @@ services:
       - "3000:3000"
     depends_on:
       - postgres
+      - metabase_db
+    environment:
+      MB_DB_TYPE: "postgres"
+      MB_DB_DBNAME: "metabase"
+      MB_DB_PORT: 5432
+      MB_DB_HOST: "metabase_db"
+      MB_DB_USER: "metabase"
+      MB_DB_PASS: "metabase_pass"
 
 volumes:
   postgres_data:
+  metabase_data:

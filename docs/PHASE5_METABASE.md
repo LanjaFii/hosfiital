@@ -106,6 +106,42 @@ PGPASSWORD=metabase_pass psql -h 127.0.0.1 -p 5433 -U metabase -d metabase -c "S
 Notes & checks performed
 - Current `compose.yaml` includes `postgres` and `metabase` services. Metabase currently has no MB_DB_* env and no persistent volume.
 - Recommended immediate action: create `metabase` DB + `metabase` user on existing Postgres, update `compose.yaml` or runtime environment to include MB_DB_* envs and restart Metabase.
+Applied change in this repository
+- The `compose.yaml` was updated to add a dedicated metadata Postgres service `metabase_db` and to set `MB_DB_*` env variables for the `metabase` service.
+
+What changed (non-destructive)
+- Added service `metabase_db` (Postgres) with DB `metabase` and user `metabase` (password `metabase_pass`).
+- Configured `metabase` service to use `MB_DB_*` env pointing to `metabase_db` so Metabase will persist metadata there instead of the embedded H2 file.
+- Added Docker volume `metabase_data` to persist the metadata DB files.
+
+Credentials and secrets
+- The compose file contains plaintext credentials for convenience in a development environment. In production, replace these with secrets or environment overrides.
+
+How to start and validate (non-destructive)
+1) Validate compose file syntax:
+
+```bash
+docker compose config
+```
+
+2) Start the metadata DB and Metabase (detached):
+
+```bash
+docker compose up -d metabase_db metabase
+```
+
+3) Check container status and logs:
+
+```bash
+docker compose ps
+docker compose logs --tail=200 metabase
+```
+
+4) Verify Metabase connected to its metadata DB: look for log lines indicating successful DB migration/initialization and startup (Metabase will report it is listening on port 3000).
+
+Notes
+- This approach keeps the application DB (`hosfiital`) untouched.
+- If you prefer the metadata DB to live in the existing Postgres instance, revert the `metabase` env to point to `postgres` and create the `metabase` DB/user on that server (instructions remain in the doc).
 
 Security & production notes
 - Use strong passwords and secrets management (do not store plaintext secrets in compose file in production).
