@@ -11,9 +11,16 @@ SELECT
   svc.name AS service_name,
   os.occupied_beds,
   os.available_beds,
-  cap.beds_total::integer AS beds_total,
-  CASE WHEN cap.beds_total IS NULL OR cap.beds_total = 0 THEN NULL
-       ELSE (os.occupied_beds::numeric / NULLIF(cap.beds_total,0)) * 100
+  -- fallback to counting beds if capacity record missing
+  COALESCE(cap.beds_total, (
+    SELECT COUNT(*) FROM beds b WHERE b.service_id = os.service_id
+  ))::integer AS beds_total,
+  CASE WHEN COALESCE(cap.beds_total, (
+        SELECT COUNT(*) FROM beds b WHERE b.service_id = os.service_id
+      )) = 0 THEN NULL
+       ELSE (os.occupied_beds::numeric / NULLIF(COALESCE(cap.beds_total, (
+            SELECT COUNT(*) FROM beds b WHERE b.service_id = os.service_id
+          )),0)) * 100
   END AS occupancy_rate
 FROM occupancy_snapshots os
 LEFT JOIN services svc ON svc.id = os.service_id

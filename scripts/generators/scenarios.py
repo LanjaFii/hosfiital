@@ -58,7 +58,7 @@ def run_scenario(name: str, days: int, seed: int, start_date, reset: bool = Fals
             tables = [
                 'recommendations', 'analyses', 'energy_consumption', 'expenses', 'budgets',
                 'staff_levels', 'activity_records', 'occupancy_snapshots', 'admissions',
-                'service_capacity', 'beds', 'services'
+                'service_capacity', 'beds', 'services', 'kpi_daily'
             ]
             for tbl in tables:
                 session.execute(text(f"DELETE FROM {tbl};"))

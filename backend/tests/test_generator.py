@@ -60,6 +60,23 @@ def test_budget_overrun_trend():
     assert data[-1] >= data[0]
 
 
+def test_reset_clears_kpi_daily():
+    start = datetime.utcnow().date()
+    # seed data
+    run_scenario(name="normal", days=3, seed=11, start_date=start, reset=True)
+    # persist some daily KPIs (as the ETL pipeline would)
+    from sqlalchemy import text as _text
+    with SessionLocal() as s:
+        s.execute(_text("INSERT INTO kpi_daily (day, admissions_total) VALUES (:d, 5) ON CONFLICT (day) DO NOTHING"), {"d": start})
+        s.commit()
+        assert s.execute(_text("SELECT count(*) FROM kpi_daily")).scalar() > 0
+    # reset must wipe kpi_daily so stale days do not skew "dernier jour"
+    run_scenario(name="normal", days=3, seed=12, start_date=start, reset=True)
+    with SessionLocal() as s:
+        rows = s.execute(_text("SELECT day FROM kpi_daily")).fetchall()
+    assert rows == [], "kpi_daily must be cleared on reset"
+
+
 def test_no_discharges_past_last_day():
     days = 10
     seed = 42

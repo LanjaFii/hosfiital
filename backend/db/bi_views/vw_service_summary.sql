@@ -24,10 +24,17 @@ SELECT
   s.service_id,
   s.service_name,
   -- latest capacity as of the date (NULL if none)
-  cap.beds_total::integer    AS beds_total,
+  -- prefer explicit capacity record; fallback to counting physical beds when missing
+  COALESCE(cap.beds_total, (
+    SELECT COUNT(*) FROM beds b WHERE b.service_id = s.service_id
+  ))::integer AS beds_total,
   coalesce(occ.occupied_beds, 0)::integer AS occupied_beds,
-  CASE WHEN cap.beds_total IS NULL OR cap.beds_total = 0 THEN NULL
-       ELSE (coalesce(occ.occupied_beds,0)::numeric / NULLIF(cap.beds_total,0)) * 100
+  CASE WHEN COALESCE(cap.beds_total, (
+        SELECT COUNT(*) FROM beds b WHERE b.service_id = s.service_id
+      )) = 0 THEN NULL
+       ELSE (coalesce(occ.occupied_beds,0)::numeric / NULLIF(COALESCE(cap.beds_total, (
+            SELECT COUNT(*) FROM beds b WHERE b.service_id = s.service_id
+          )),0)) * 100
   END AS occupancy_rate,
   coalesce(act.admissions,0)::integer AS admissions,
   coalesce(act.discharges,0)::integer AS discharges,
