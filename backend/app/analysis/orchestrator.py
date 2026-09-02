@@ -157,6 +157,9 @@ def _fetch_kpis_from_provider(provider: Optional[Dict[str, Any]], start: Optiona
 
     # Default: call kpis functions to build snapshot
     out: Dict[str, Any] = {}
+    period_days = ((end - start).days + 1) if (start and end) else 1
+    out['period_days'] = period_days
+
     out['admissions_total'] = kpis_module.admissions_total(start, end)
     out['discharges_total'] = kpis_module.discharges_total(start, end)
     out['occupied_beds_total'] = kpis_module.occupied_beds_total(start, end)
@@ -166,11 +169,21 @@ def _fetch_kpis_from_provider(provider: Optional[Dict[str, Any]], start: Optiona
     out['energy_total'] = kpis_module.energy_total(start, end)
     out['capacity_by_service'] = kpis_module.capacity_by_service(as_of=end)
     out['occupied_by_service'] = kpis_module.occupied_beds_by_service(start, end)
-    out['budget_by_service'] = kpis_module.budget_by_service()
     out['expenses_by_service'] = kpis_module.expenses_by_service(start, end)
-    out['staff_by_service'] = kpis_module.staff_by_service(as_of=end)
+    out['staff_by_service'] = kpis_module.staff_roles_by_service(as_of=end)
     out['admissions_by_service'] = {d['service_id']: d['admissions'] for d in kpis_module.admissions_by_service(start, end)}
     out['service_kpis'] = kpis_module.service_kpi_summary(start, end)
+
+    # Prorate annual budgets to the analysed period so budget anomalies are realistic.
+    annual_budget = kpis_module.budget_by_service()
+    out['budget_by_service'] = {
+        sid: (float(amt) / 365.0) * period_days for sid, amt in annual_budget.items()
+    } if period_days else annual_budget
+
+    # Energy baseline over the days preceding the period (for the energy rule).
+    baseline, baseline_days = kpis_module.energy_baseline_per_admission(start=start, baseline_days=7)
+    out['baseline_energy_per_admission'] = baseline
+    out['baseline_days'] = baseline_days
     return out
 
 

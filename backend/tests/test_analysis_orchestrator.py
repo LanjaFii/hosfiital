@@ -1,5 +1,7 @@
 from datetime import date
 
+from sqlalchemy import text
+from backend.app.db.session import engine
 from backend.app.analysis import orchestrator
 
 
@@ -111,3 +113,29 @@ def test_recommendations_budget_readable():
     assert bud is not None
     assert 'Rule ' not in bud['text']
     assert 'Urgences' in bud['text']
+
+
+def test_fetch_prorates_annual_budget_to_period():
+    # A 7-day analysis period must not use the full annual budget as-is;
+    # otherwise budget anomalies are wildly overstated (regression guard).
+    conn = engine.connect()
+    trans = conn.begin()
+    try:
+        conn.execute(text("insert into services (id, code, name, created_at) values (9977, 'TSTB', 'Budget Test', now())"))
+        conn.execute(text("insert into budgets (service_id, year, budget_amount) values (9977, 2026, 36500)"))
+        trans.commit()
+        # 7-day period in 2026 => prorated budget should be ~700
+        kpis = orchestrator._fetch_kpis_from_provider(None, date(2026, 8, 1), date(2026, 8, 7), None)
+        assert kpis['period_days'] == 7
+        avg = 36500 / 365.0 * 7
+        prorated = kpis['budget_by_service'][9977]
+        assert abs(prorated - avg) < 1.0, f"expected prorated {avg}, got {prorated}"
+    finally:
+        cleanup = engine.connect()
+        try:
+            cleanup.execute(text("delete from budgets where service_id = 9977"))
+            cleanup.execute(text("delete from services where id = 9977"))
+            cleanup.commit()
+        finally:
+            cleanup.close()
+        conn.close()

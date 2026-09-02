@@ -32,7 +32,7 @@ DEFAULT_CONFIG = {
         'mult_warning': 1.5,
         'mult_alert': 2.0,
         'mult_critical': 3.0,
-        'baseline_days': 30,
+        'baseline_days': 7,
     },
     'staff': {
         # admissions per staff per day thresholds (example for nurses)
@@ -256,20 +256,25 @@ def rule_staff_shortage(context: Dict[str, Any], cfg: Dict = CONFIG) -> Dict:
         triggered = False
         overall_sev = None
         order = {'warning': 1, 'alert': 2, 'critical': 3}
-        for sid, roles in staff.items():
+        for sid, raw in staff.items():
             total_recs = adm.get(sid, 0)
             if total_recs is None:
                 continue
+            # Accept both nested role dicts and flat headcount totals.
+            if isinstance(raw, dict):
+                roles = raw
+            else:
+                roles = {'total': int(raw)}
             # normalize per day
             per_day = float(total_recs) / float(period_days)
             # check per role, prefer nurse role thresholds
-            nurse_count = roles.get('nurse') or 0
+            nurse_count = roles.get('nurse') or roles.get('total') or 0
             thresholds = cfg['staff'].get('nurse') if 'nurse' in roles else cfg['staff']['default']
             # avoid division by zero
             if nurse_count == 0:
                 if per_day > 0:
                     sev = 'critical'
-                    details[sid] = {'status': 'triggered', 'severity': sev, 'reason': 'no nurses and admissions>0', 'per_day': per_day, 'nurse_count': nurse_count}
+                    details[sid] = {'status': 'triggered', 'severity': sev, 'reason': 'no staff and admissions>0', 'per_day': per_day, 'nurse_count': nurse_count}
                     triggered = True
                     if order[sev] > order.get(overall_sev or 'warning'):
                         overall_sev = sev

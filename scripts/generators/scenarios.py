@@ -69,11 +69,11 @@ def run_scenario(name: str, days: int, seed: int, start_date, reset: bool = Fals
         session.commit()
 
         # beds and capacity
-        capacities = generate_beds_and_capacity(session, services, rnd)
+        capacities = generate_beds_and_capacity(session, services, rnd, start_date)
         session.commit()
 
         # staff
-        staff = generate_staff_levels(session, services, capacities, rnd)
+        staff = generate_staff_levels(session, services, capacities, rnd, start_date)
         session.commit()
 
         # budgets

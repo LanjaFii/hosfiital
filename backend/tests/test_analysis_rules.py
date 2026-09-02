@@ -81,3 +81,18 @@ def test_rule_staff_no_nurses():
     res = rules.rule_staff_shortage(ctx)
     assert res['status'] == 'triggered'
     assert res['values']['details']['s1']['severity'] == 'critical'
+
+
+def test_rule_staff_accepts_flat_totals():
+    # staff_roles_by_service returns nested role dicts, but flat headcount
+    # totals (older providers) must not crash and should still evaluate.
+    ctx = {
+        'staff_by_service': {'s1': 2, 's2': 0},
+        'admissions_by_service': {'s1': 5, 's2': 5},
+        'period_days': 1,
+    }
+    res = rules.rule_staff_shortage(ctx)
+    assert res['rule_id'] == 'staff_shortage_v1'
+    assert 'details' in res['values']
+    # s2 has 0 staff and admissions>0 -> must be flagged
+    assert res['values']['details']['s2']['severity'] == 'critical'

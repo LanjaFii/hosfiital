@@ -157,23 +157,33 @@ def capacity_by_service(as_of: Optional[date] = None):
         return {r[0]: int(r[1]) for r in conn.execute(text(q), params).fetchall()}
 
 
-def occupied_beds_total(start: Optional[date] = None, end: Optional[date] = None) -> int:
-    q = "select sum(occupied_beds) from occupancy_snapshots"
-    params = _date_params(start, end)
-    if start and end:
-        q += " where snapshot_at::date between :start and :end"
+def _latest_occupied_by_service(as_of: Optional[date] = None):
+    """Most recent occupancy snapshot per service as of a date (point-in-time)."""
+    params = {}
+    if as_of:
+        params['as_of'] = as_of
+        q = ("select service_id, occupied_beds from ("
+             "select distinct on (service_id) service_id, occupied_beds "
+             "from occupancy_snapshots where snapshot_at::date <= :as_of "
+             "order by service_id, snapshot_at desc) t")
+    else:
+        q = ("select service_id, occupied_beds from ("
+             "select distinct on (service_id) service_id, occupied_beds "
+             "from occupancy_snapshots order by service_id, snapshot_at desc) t")
     with engine.connect() as conn:
-        return int(conn.execute(text(q), params).scalar() or 0)
+        return {r[0]: int(r[1]) for r in conn.execute(text(q), params).fetchall()}
+
+
+def occupied_beds_total(start: Optional[date] = None, end: Optional[date] = None) -> int:
+    # Point-in-time occupancy as of `end` (latest snapshot), so it stays
+    # comparable with the point-in-time capacity instead of summing person-days.
+    occ = _latest_occupied_by_service(as_of=end or start)
+    return int(sum(occ.values()))
 
 
 def occupied_beds_by_service(start: Optional[date] = None, end: Optional[date] = None):
-    q = "select service_id, sum(occupied_beds) from occupancy_snapshots"
-    params = _date_params(start, end)
-    if start and end:
-        q += " where snapshot_at::date between :start and :end"
-    q += " group by service_id"
-    with engine.connect() as conn:
-        return {r[0]: int(r[1]) for r in conn.execute(text(q), params).fetchall()}
+    # Point-in-time occupancy per service as of the end of the period.
+    return _latest_occupied_by_service(as_of=end or start)
 
 
 def occupancy_rate_global(as_of: Optional[date] = None, start: Optional[date] = None, end: Optional[date] = None) -> Optional[float]:
@@ -238,6 +248,26 @@ def activity_per_staff(start: Optional[date] = None, end: Optional[date] = None)
     return float(Decimal(adm) / Decimal(staff))
 
 
+def staff_roles_by_service(as_of: Optional[date] = None):
+    """Latest headcount per (service, role) as of a date: {service_id: {role: headcount}}."""
+    params = {}
+    if as_of:
+        params['as_of'] = as_of
+        q = ("select service_id, role, headcount from ("
+             "select distinct on (service_id, role) service_id, role, headcount "
+             "from staff_levels where as_of <= :as_of order by service_id, role, as_of desc) t")
+    else:
+        q = ("select service_id, role, headcount from ("
+             "select distinct on (service_id, role) service_id, role, headcount "
+             "from staff_levels order by service_id, role, as_of desc) t")
+    out = {}
+    with engine.connect() as conn:
+        for sid, role, hc in conn.execute(text(q), params).fetchall():
+            out.setdefault(sid, {})[role] = int(hc)
+    return out
+
+
+
 def budget_by_service():
     q = "select service_id, sum(budget_amount) from budgets group by service_id"
     with engine.connect() as conn:
@@ -296,6 +326,35 @@ def energy_by_service(start: Optional[date] = None, end: Optional[date] = None):
     q += " group by service_id"
     with engine.connect() as conn:
         return {r[0]: float(r[1]) for r in conn.execute(text(q), params).fetchall()}
+
+
+def energy_baseline_per_admission(start: Optional[date] = None, baseline_days: Optional[int] = None):
+    """Average energy per admission over a prior baseline window.
+
+    The window is the `baseline_days` days strictly before `start`.
+    If `start` is not given or no prior data exists, return (None, 0) so the
+    caller can decide that the energy rule is not evaluable.
+    Returns (baseline_value, baseline_day_count).
+    """
+    if not start or not baseline_days:
+        return None, 0
+    from datetime import timedelta
+    base_start = start - timedelta(days=baseline_days)
+    with engine.connect() as conn:
+        row = conn.execute(text(
+            "select sum(e.consumption_kwh), count(distinct e.measured_at::date) "
+            "from energy_consumption e where e.measured_at::date >= :base_start and e.measured_at::date < :start"),
+            {'base_start': base_start, 'start': start}).first()
+        energy = float(row[0] or 0.0)
+        days = int(row[1] or 0)
+        if days == 0:
+            return None, 0
+        adm = int(conn.execute(text(
+            "select count(*) from admissions where admitted_at::date >= :base_start and admitted_at::date < :start"),
+            {'base_start': base_start, 'start': start}).scalar() or 0)
+    if adm > 0:
+        return energy / float(adm), days
+    return energy / float(days), days
 
 
 def service_kpi_summary(start: Optional[date] = None, end: Optional[date] = None):

@@ -15,7 +15,6 @@ def db_session():
 
 
 def test_occupancy_rate_simple(db_session):
-    # use a transaction to rollback test data
     conn = engine.connect()
     trans = conn.begin()
     try:
@@ -25,6 +24,7 @@ def test_occupancy_rate_simple(db_session):
         conn.execute(text("insert into service_capacity (service_id, as_of, beds_total) values (9999, now(), 10)"))
         # one snapshot with 3 occupied
         conn.execute(text("insert into occupancy_snapshots (service_id, snapshot_at, occupied_beds, available_beds) values (9999, now(), 3, 7)"))
+        trans.commit()
         kpis = calculate_daily_kpis()
         assert any(k['occupied_beds_total'] >= 3 for k in kpis)
         # find the day of the snapshot
@@ -34,7 +34,15 @@ def test_occupancy_rate_simple(db_session):
         rate = day_k[0]['occupancy_rate']
         assert rate is None or rate >= 0
     finally:
-        trans.rollback()
+        # cleanup test data
+        cleanup = engine.connect()
+        try:
+            cleanup.execute(text("delete from occupancy_snapshots where service_id = 9999"))
+            cleanup.execute(text("delete from service_capacity where service_id = 9999"))
+            cleanup.execute(text("delete from services where id = 9999"))
+            cleanup.commit()
+        finally:
+            cleanup.close()
         conn.close()
 
 
@@ -52,3 +60,17 @@ def test_budget_vs_expense(db_session):
     finally:
         trans.rollback()
         conn.close()
+
+
+def test_occupancy_never_exceeds_capacity(db_session):
+    # Regression: occupied beds must be a point-in-time snapshot (as-of end),
+    # never a period SUM of person-days, otherwise occupancy can exceed 100%
+    # and trigger phantom saturation alerts.
+    kpis = calculate_daily_kpis()
+    for k in kpis:
+        cap = k['capacity_total'] or 0
+        occ = k['occupied_beds_total'] or 0
+        if cap > 0:
+            assert occ <= cap, f"occupied {occ} > capacity {cap} on {k['date']}"
+            rate = k['occupancy_rate']
+            assert rate is not None and 0.0 <= rate <= 100.0, f"occupancy {rate} out of range on {k['date']}"

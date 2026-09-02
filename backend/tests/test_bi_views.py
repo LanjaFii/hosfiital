@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 import json
 from sqlalchemy import text
 from backend.app.db.session import engine, SessionLocal
@@ -72,7 +72,10 @@ def test_aggregations_and_zero_division_protection():
         svc = session.query(Service).first()
         assert svc is not None, 'no service present'
         sid = svc.id
-        sc = ServiceCapacity(service_id=sid, as_of=datetime.utcnow(), beds_total=0, notes='test zero')
+        # as_of must be on/before the queried date so this 0-capacity record is
+        # the effective one for that day (capacity is a point-in-time as-of).
+        # Use a later timestamp than the generator's record so it is the latest.
+        sc = ServiceCapacity(service_id=sid, as_of=datetime.combine(test_date, time.max), beds_total=0, notes='test zero')
         session.add(sc)
         session.commit()
         session.close()
@@ -135,7 +138,9 @@ def test_vw_recommendations_extracts_severity_and_evidence():
 
 
 def test_views_tolerate_missing_data():
-    # create a service with no activity/capacity and ensure views don't error and produce rows
+    # self-contained: generate a small dataset so dates exist, then add a
+    # service that has no activity/capacity and ensure views don't error.
+    setup_test_data()
     session = SessionLocal()
     svc = Service(code='TMP', name='Tmp Service', description='tmp')
     session.add(svc)
@@ -146,8 +151,9 @@ def test_views_tolerate_missing_data():
     with engine.begin() as conn:
         with open('backend/db/bi_views/vw_service_summary.sql') as f:
             conn.execute(text(f.read()))
-        # pick any date present in kpi_daily or activity_records
-        d = conn.execute(text('SELECT day::date FROM kpi_daily LIMIT 1')).scalar()
+        # pick any date present in activity_records (always populated after setup)
+        d = conn.execute(text('SELECT DISTINCT period_start::date FROM activity_records LIMIT 1')).scalar()
+        assert d is not None, 'expected some activity date after setup'
         # ensure the row exists (should, because CROSS JOIN services x dates)
         row = conn.execute(text('SELECT service_id, admissions, expenses FROM vw_service_summary WHERE date = :d AND service_id = :sid'), {'d': d, 'sid': sid}).fetchone()
         assert row is not None, 'expected row for service with missing data'
