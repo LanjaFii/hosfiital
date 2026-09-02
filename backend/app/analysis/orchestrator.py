@@ -30,28 +30,123 @@ def _compute_overall_risk(rule_results: List[Dict[str, Any]]) -> str:
     return pick or 'ok'
 
 
-def _make_recommendations(rule_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _service_names_from_kpis(kpis: Optional[Dict[str, Any]]) -> Dict:
+    """Build a service_id -> service_name map from the KPI snapshot `service_kpis`."""
+    names: Dict = {}
+    for item in (kpis or {}).get('service_kpis') or []:
+        if isinstance(item, dict) and item.get('service_id') is not None:
+            names[item.get('service_id')] = item.get('service_name')
+    return names
+
+
+def _service_label(sid, names: Dict) -> str:
+    """Human label for a service id: its name when known, otherwise fallback."""
+    if sid is None:
+        return None
+    name = names.get(sid)
+    return name if name else f"le service {sid}"
+
+
+def _recommendation_text(rule_id: str, severity, values: Dict[str, Any], names: Dict, budgets: Dict, expenses: Dict) -> tuple:
+    """Return a human-readable, actionable (text, service_id) for a triggered rule."""
+    svc = None
+
+    if rule_id == 'saturation_v1':
+        issue = values.get('service_issue') or {}
+        svc = issue.get('service_id')
+        s_rate = issue.get('occupancy_rate')
+        occ = values.get('occupancy_rate')
+        name = _service_label(svc, names)
+        if name and s_rate is not None:
+            return (
+                f"Saturation {severity} : {name} est à {s_rate*100:.0f}% de sa capacité. "
+                "Envisagez d'augmenter le nombre de lits ou de réorienter des patients "
+                "vers d'autres services.", svc)
+        if occ is not None:
+            return (
+                f"Saturation {severity} : le taux d'occupation global de l'hôpital est de "
+                f"{occ*100:.0f}%. Envisagez d'augmenter la capacité ou de mieux répartir la charge.", None)
+        return ("Saturation détectée : la capacité est dépassée. Envisagez d'augmenter la capacité.", svc)
+
+    if rule_id == 'budget_overrun_v1':
+        details = values.get('details') or {}
+        for sid, info in details.items():
+            if info.get('status') != 'triggered':
+                continue
+            try:
+                svc = int(sid)
+            except Exception:
+                svc = sid
+            name = _service_label(svc, names)
+            exp = float(expenses.get(svc, 0.0) or 0.0)
+            bud = budgets.get(svc)
+            if bud:
+                pct = (exp / float(bud)) * 100
+                return (
+                    f"Dépassement {severity} du budget de {name} : {exp:,.0f} € dépensés "
+                    f"pour {bud:,.0f} € prévus ({pct:.0f}%). Envisagez de réduire les dépenses "
+                    "ou de réviser ce budget.", svc)
+            return (
+                f"Dépassement {severity} du budget de {name} : {exp:,.0f} € dépensés. "
+                "Envisagez de réduire les dépenses.", svc)
+        return None
+
+    if rule_id == 'energy_anomaly_v1':
+        mult = values.get('multiplier')
+        if mult is not None:
+            return (
+                f"Consommation énergétique anormalement élevée ({mult:.0f}× la normale). "
+                "Envisagez un audit énergétique et des mesures d'économie.", None)
+        return ("Consommation énergétique anormalement élevée. Envisagez un audit énergétique.", None)
+
+    if rule_id == 'staff_shortage_v1':
+        details = values.get('details') or {}
+        for sid, info in details.items():
+            if info.get('status') != 'triggered':
+                continue
+            try:
+                svc = int(sid)
+            except Exception:
+                svc = sid
+            name = _service_label(svc, names)
+            per_day = info.get('per_day')
+            nurses = info.get('nurse_count')
+            apn = info.get('activity_per_nurse')
+            if nurses == 0 and per_day:
+                return (
+                    f"Effectif insuffisant à {name} : {per_day:.1f} admissions/jour pour 0 infirmier. "
+                    "Envisagez de recruter du personnel soignant.", svc)
+            if apn is not None and nurses:
+                return (
+                    f"Charge de travail élevée à {name} : {apn:.2f} admissions/jour par infirmier. "
+                    "Envisagez de renforcer les effectifs.", svc)
+            return (f"Effectif insuffisant à {name}. Envisagez de renforcer les effectifs.", svc)
+        return None
+
+    return None
+
+
+def _make_recommendations(rule_results: List[Dict[str, Any]], kpis: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    names = _service_names_from_kpis(kpis)
+    budgets = (kpis or {}).get('budget_by_service') or {}
+    expenses = (kpis or {}).get('expenses_by_service') or {}
+
     recs = []
     for r in rule_results:
         if r['status'] != 'triggered':
             continue
-        text = f"Rule {r['rule_id']} triggered (severity={r['severity']}): {r['explanation']}"
-        # try to extract a service_id if available in rule values
-        svc = None
+        rid = r['rule_id']
+        sev = r['severity']
         vals = r.get('values') or {}
-        # common patterns
-        if 'service_issue' in vals and isinstance(vals['service_issue'], dict):
-            svc = vals['service_issue'].get('service_id')
-        # budget rule: details -> find triggered service
-        if svc is None and 'details' in vals and isinstance(vals['details'], dict):
-            for sid, info in vals['details'].items():
-                if info.get('status') == 'triggered':
-                    try:
-                        svc = int(sid)
-                        break
-                    except Exception:
-                        svc = sid
-        recs.append({'rule_id': r['rule_id'], 'severity': r['severity'], 'text': text, 'service_id': svc})
+        pair = _recommendation_text(rid, sev, vals, names, budgets, expenses)
+        if pair:
+            text, svc = pair
+        else:
+            text, svc = (
+                f"Alerte {sev or 'détectée'} sur la règle {rid}. Consultez le détail des indicateurs.",
+                None,
+            )
+        recs.append({'rule_id': rid, 'severity': sev, 'text': text, 'service_id': svc})
     return recs
 
 
@@ -123,7 +218,7 @@ def run_analysis(start: Optional[date] = None, end: Optional[date] = None, servi
     results.append(rules.rule_staff_shortage(rule_ctx_staff))
 
     overall_risk = _compute_overall_risk(results)
-    recommendations = _make_recommendations(results)
+    recommendations = _make_recommendations(results, kpis)
 
     report = {
         'triggered_by': triggered_by,

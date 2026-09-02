@@ -82,3 +82,32 @@ def test_recommendations_generated():
     r = orchestrator.run_analysis(start=date(2026, 8, 1), end=date(2026, 8, 1), kpi_provider=provider_saturation())
     assert isinstance(r['recommendations'], list)
     assert len(r['recommendations']) >= 1
+
+
+def test_recommendations_are_human_readable():
+    p = provider_saturation()
+    # give service names so the text uses friendly labels
+    p['service_kpis'] = [
+        {'service_id': 1, 'service_name': 'Urgences'},
+        {'service_id': 2, 'service_name': 'Médecine générale'},
+    ]
+    r = orchestrator.run_analysis(start=date(2026, 8, 1), end=date(2026, 8, 1), kpi_provider=p)
+    sat = next((rec for rec in r['recommendations'] if rec['rule_id'] == 'saturation_v1'), None)
+    assert sat is not None
+    # must not be the raw technical template
+    assert 'Rule ' not in sat['text']
+    assert 'triggered' not in sat['text']
+    assert 'Urgences' in sat['text']
+
+
+def test_recommendations_budget_readable():
+    p = provider_budget_overrun()
+    p['service_kpis'] = [
+        {'service_id': 1, 'service_name': 'Urgences'},
+        {'service_id': 2, 'service_name': 'Médecine générale'},
+    ]
+    r = orchestrator.run_analysis(start=date(2026, 8, 1), end=date(2026, 8, 1), kpi_provider=p)
+    bud = next((rec for rec in r['recommendations'] if rec['rule_id'] == 'budget_overrun_v1'), None)
+    assert bud is not None
+    assert 'Rule ' not in bud['text']
+    assert 'Urgences' in bud['text']
