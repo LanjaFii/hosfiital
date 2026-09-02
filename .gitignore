@@ -11,3 +11,7 @@ dist/
 build/
 # temporary backend backups
 backend/tmp_*.csv
+
+# stray terminal-capture artifacts at repo root
+h -lc
+wor in rows:
